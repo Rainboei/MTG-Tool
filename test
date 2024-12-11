@@ -12,5 +12,3 @@ class card:
     return f"{self.name}({self.cost}), {self.canplay}"
   def stats(self):
     print(self)
-p1 = card("John", 2, "Can play")
-p1.stats()
