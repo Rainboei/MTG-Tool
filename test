@@ -1,0 +1,16 @@
+mana = 1
+class card:
+  def __init__(self, name, cost, canplay):
+    self.name = name
+    self.cost = cost
+    self.canplay = canplay
+  def __str__(self):
+    if self.cost<=mana:
+      self.canplay = "Can play"
+    else:
+      self.canplay = "Cannot play"
+    return f"{self.name}({self.cost}), {self.canplay}"
+  def stats(self):
+    print(self)
+p1 = card("John", 2, "Can play")
+p1.stats()
