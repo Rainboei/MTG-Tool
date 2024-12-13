@@ -15,7 +15,9 @@ class card:
   def stats(self):
     print(self)
 
-# Example
+#Example
+
+#Syntax = [wanted unique object name of card] = card("[card name]", [cost])
 c1 = card("John", 2)
 c2 = card("Bill", 1)
 c3 = card("Jimmy", 3)
