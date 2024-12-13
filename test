@@ -1,9 +1,8 @@
 mana = 1
 class card:
-  def __init__(self, name, cost, canplay):
+  def __init__(self, name, cost):
     self.name = name
     self.cost = cost
-    self.canplay = canplay
   def __str__(self):
     if self.cost<=mana:
       self.canplay = "Can play"
