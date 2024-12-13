@@ -1,13 +1,25 @@
 mana = 1
+
 class card:
   def __init__(self, name, cost):
     self.name = name
-    self.cost = cost
+    self.cost = cost #No color (yet), must be only a number 
   def __str__(self):
     if self.cost<=mana:
       self.canplay = "Can play"
+      self.canplayvar = 1
     else:
       self.canplay = "Cannot play"
+      self.canplayvar = 0
     return f"{self.name}({self.cost}), {self.canplay}"
   def stats(self):
     print(self)
+
+# Example
+c1 = card("John", 2)
+c2 = card("Bill", 1)
+c3 = card("Jimmy", 3)
+
+c1.stats()
+c2.stats()
+c3.stats()
