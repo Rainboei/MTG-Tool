@@ -16,7 +16,6 @@ class card:
     print(self)
 
 #Example
-
 #Syntax = [wanted unique object name of card] = card("[card name]", [cost])
 c1 = card("John", 2)
 c2 = card("Bill", 1)
