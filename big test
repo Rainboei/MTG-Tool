@@ -45,3 +45,32 @@ class ManaPool:
   def __str__(self):
     """Return a formatted string representing the current mana pool."""
     return ", ".join(f"{MANA_COLORS[color]}: {amount}" for color, amount in self.pool.items() if amount > 0)
+  
+
+class Card:
+  """
+  Base class for all cards, supporting colored mana costs.
+  """
+  def __init__(self, name, cost, card_type):
+    self.name = name
+    # Cost is represented as a dictionary: {"White": 1, "Blue": 0, "Green": 2, ...}
+    self.cost = {color: cost.get(color, 0) for color in MANA_COLORS}
+    self.card_type = card_type
+    self.tapped = False
+    self.zone = "Library"
+  
+  def is_playable(self, mana_pool):
+    """
+    Determine if the card can be played with the given mana pool.
+    Returns True if playable, otherwise False.
+    """
+    for color, amount in self.cost.items():
+      if mana_pool.pool.get(color, 0) < amount:
+        return False
+      return True
+    
+  def __str__(self):
+    """Return a detailed string representation of the card."""
+    cost_str = ", ".join(f"{MANA_COLORS[color]}: {amount}" for color, amount in self.cost.items() if amount > 0)
+    tapped_status = "Tapped" if self.tapped else "Untapped"
+    return f"{self.name} ({self.card_type}) - Cost: {cost_str}, Status: {tapped_status}, Zone: {self.zone}"
