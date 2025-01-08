@@ -1,1 +1,47 @@
+# Define valid mana colors with shorthand notation
+MANA_COLORS = {"White": "W", "Blue": "U", "Black": "B", "Red": "R", "Green": "G", "Colorless": "C"}
 
+
+class ManaPool:
+  """
+  Represents a player's mana pool.
+  Supports adding, spending, and resetting mana of all valid colors.
+  """
+  def __init__(self):
+    # Initialize mana pool with all colors set to 0
+    self.pool = {color: 0 for color in MANA_COLORS}
+  
+  def add_mana(self, color, amount=1):
+    """Add a specified amount of mana of a specific color to the pool."""
+    if color in self.pool:
+      self.pool[color] += amount
+      print(f"Added {amount} {color} mana. Current mana pool: {self}")
+    else:
+      print(f"Invalid mana color: {color}")
+  
+  def spend_mana(self, cost):
+    """
+    Attempt to spend mana from the pool.
+    The cost should be a dictionary: {"White": 1, "Blue": 2, ...}.
+    Returns True if the cost can be paid, otherwise False.
+    """
+    # Check if sufficient mana is available for each color in the cost
+    for color, amount in cost.items():
+      if self.pool.get(color, 0) < amount:
+        print(f"Not enough {color} mana to pay the cost!")
+        return False
+    
+    # Deduct the mana from the pool after verifying
+    for color, amount in cost.items():
+      self.pool[color] -= amount
+    print(f"Mana spent: {cost}. Remaining pool: {self}.")
+    return True
+    
+  def reset_pool(self):
+    """Resets all mana in the pool to 0 at the end of a turn."""
+    self.pool = {color: 0 for color in self.pool}
+    print("Mana pool has been reset.")
+  
+  def __str__(self):
+    """Return a formatted string representing the current mana pool."""
+    return ", ".join(f"{MANA_COLORS[color]}: {amount}" for color, amount in self.pool.items() if amount > 0)
