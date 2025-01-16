@@ -1,1 +1,293 @@
+import random
+from collections import Counter
+from itertools import combinations
 
+# Ranks and suits
+SUITS = ['Hearts', 'Diamonds', 'Clubs', 'Spades']
+RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A']
+
+# Card and Deck
+class Card:
+    def __init__(self, value, suit):
+        self.value = value
+        self.suit = suit
+
+    def __str__(self):
+        return f"{self.value} of {self.suit}"
+
+    def __repr__(self):
+        value_str = str(self.value)
+        if self.value == 11:
+            value_str = "J"
+        elif self.value == 12:
+            value_str = "Q"
+        elif self.value == 13:
+            value_str = "K"
+        elif self.value == 14:
+            value_str = "A"
+        return f"{value_str} of {self.suit}"
+
+class Deck:
+    def __init__(self):
+        self.cards = [Card(value, suit) for value in range(2, 15) for suit in ['Hearts', 'Diamonds', 'Clubs', 'Spades']]
+        random.shuffle(self.cards)
+
+    def draw(self, count):
+        return [self.cards.pop() for _ in range(count)]
+
+# Player
+class Player:
+    def __init__(self, name, chips=1000):
+        self.name = name
+        self.chips = chips
+        self.hand = []
+        self.folded = False
+
+    def __str__(self):
+        return f"{self.name} ({self.chips} chips)"
+
+# Hand Evaluation
+class HandEvaluator:
+    HAND_RANKINGS = {
+        "Royal Flush": 10,
+        "Straight Flush": 9,
+        "Four of a Kind": 8,
+        "Full House": 7,
+        "Flush": 6,
+        "Straight": 5,
+        "Three of a Kind": 4,
+        "Two Pair": 3,
+        "One Pair": 2,
+        "High Card": 1
+    }
+
+    @staticmethod
+    def evaluate_hand(cards):
+        """Evaluates a 7-card hand and returns its rank and best cards."""
+        all_combinations = combinations(cards, 5)
+        best_hand = None
+        best_rank = 0
+
+        for combo in all_combinations:
+            rank, best_cards = HandEvaluator.get_hand_rank(combo)
+            if rank > best_rank or (rank == best_rank and best_cards > best_hand):
+                best_rank = rank
+                best_hand = best_cards
+
+        return best_rank, best_hand
+
+    @staticmethod
+    def get_hand_rank(cards):
+        """Determines the rank of a 5-card hand."""
+        values = [card.value for card in cards]
+        suits = [card.suit for card in cards]
+        value_counts = Counter(values)
+        is_flush = len(set(suits)) == 1
+        is_straight, high_card = HandEvaluator.is_straight(values)
+
+        if is_flush and is_straight:
+            if high_card == 14:  # Ace-high straight
+                return HandEvaluator.HAND_RANKINGS["Royal Flush"], values
+            return HandEvaluator.HAND_RANKINGS["Straight Flush"], values
+
+        if 4 in value_counts.values():
+            return HandEvaluator.HAND_RANKINGS["Four of a Kind"], values
+
+        if sorted(value_counts.values()) == [2, 3]:
+            return HandEvaluator.HAND_RANKINGS["Full House"], values
+
+        if is_flush:
+            return HandEvaluator.HAND_RANKINGS["Flush"], sorted(values, reverse=True)
+
+        if is_straight:
+            return HandEvaluator.HAND_RANKINGS["Straight"], values
+
+        if 3 in value_counts.values():
+            return HandEvaluator.HAND_RANKINGS["Three of a Kind"], values
+
+        if list(value_counts.values()).count(2) == 2:
+            return HandEvaluator.HAND_RANKINGS["Two Pair"], values
+
+        if 2 in value_counts.values():
+            return HandEvaluator.HAND_RANKINGS["One Pair"], values
+
+        return HandEvaluator.HAND_RANKINGS["High Card"], sorted(values, reverse=True)
+
+    @staticmethod
+    def is_straight(values):
+        """Checks if the hand is a straight and returns the high card."""
+        sorted_values = sorted(set(values))
+        for i in range(len(sorted_values) - 4):
+            if sorted_values[i:i + 5] == list(range(sorted_values[i], sorted_values[i] + 5)):
+                return True, sorted_values[i + 4]
+
+        # Handle Ace-low straight (A, 2, 3, 4, 5)
+        if set([14, 2, 3, 4, 5]).issubset(values):
+            return True, 5
+        return False, None
+
+# Existing Classes: Card, Deck, Player, and evaluate_hand
+
+class AIPlayer(Player):
+    def __init__(self, name, chips=1000):
+        super().__init__(name, chips)
+
+    def decide_action(self, current_bet, pot, community_cards):
+        # Basic AI logic based on the situation
+        if self.chips_in_pot == current_bet:
+            return "check"
+        elif current_bet - self.chips_in_pot <= self.chips * 0.1:
+            return "call"
+        elif random.random() < 0.2:  # 20% chance to raise
+            return "raise"
+        else:
+            return "fold"
+
+class TexasHoldem:
+    def __init__(self, players):
+        self.deck = Deck()
+        self.players = players
+        self.community_cards = []
+        self.pot = 0
+        self.current_bet = 0
+
+    def reset_betting_round(self):
+      for player in self.players:
+        player.chips_in_pot = 0
+
+    def deal_hole_cards(self):
+        for player in self.players:
+            player.hand = self.deck.draw(2)
+
+    def deal_community_cards(self, count):
+        self.community_cards.extend(self.deck.draw(count))
+
+    def betting_round(self):
+        self.reset_betting_round()
+        active_players = [player for player in self.players if not player.folded]
+        self.current_bet = 0
+        for player in active_players:
+            player.has_acted = False
+
+        while not all(player.has_acted or player.folded for player in active_players):
+            for player in active_players:
+                if player.folded or player.has_acted:
+                    continue
+                if isinstance(player, AIPlayer):
+                    self.ai_action(player)
+                else:
+                    self.player_action(player)
+
+    def player_action(self, player):
+        print(f"\n{player.name}'s turn.")
+        print(f"Current pot: {self.pot}, Current bet: {self.current_bet}")
+        print(f"Your chips: {player.chips}")
+        print(f"Your hand: {player.hand}")
+        print("Options: [F]old, [C]all/Check, [R]aise")
+
+        action = input("Choose your action: ").strip().lower()
+        if action == 'f':
+            player.folded = True
+            print(f"{player.name} folds.")
+        elif action == 'c':
+            chips_to_call = self.current_bet - (player.chips_in_pot if hasattr(player, 'chips_in_pot') else 0)
+            player.chips -= chips_to_call
+            self.pot += chips_to_call
+            player.chips_in_pot = self.current_bet
+            print(f"{player.name} calls/checks.")
+        elif action == 'r':
+            raise_amount = int(input("Enter raise amount: "))
+            self.current_bet += raise_amount
+            total_to_call = self.current_bet - (player.chips_in_pot if hasattr(player, 'chips_in_pot') else 0)
+            player.chips -= total_to_call
+            self.pot += total_to_call
+            player.chips_in_pot = self.current_bet
+            print(f"{player.name} raises to {self.current_bet}.")
+        else:
+            print("Invalid action. Try again.")
+            self.player_action(player)
+
+        player.has_acted = True
+
+    def ai_action(self, player):
+        decision = player.decide_action(self.current_bet, self.pot, self.community_cards)
+        if decision == "fold":
+            player.folded = True
+            print(f"{player.name} (AI) folds.")
+        elif decision == "call":
+            chips_to_call = self.current_bet - (player.chips_in_pot if hasattr(player, 'chips_in_pot') else 0)
+            player.chips -= chips_to_call
+            self.pot += chips_to_call
+            player.chips_in_pot = self.current_bet
+            print(f"{player.name} (AI) calls.")
+        elif decision == "raise":
+            raise_amount = random.randint(10, min(player.chips, self.current_bet + 100))
+            self.current_bet += raise_amount
+            total_to_call = self.current_bet - (player.chips_in_pot if hasattr(player, 'chips_in_pot') else 0)
+            player.chips -= total_to_call
+            self.pot += total_to_call
+            player.chips_in_pot = self.current_bet
+            print(f"{player.name} (AI) raises to {self.current_bet}.")
+        elif decision == "check":
+            print(f"{player.name} (AI) checks.")
+
+        player.has_acted = True
+
+    def show_hands(self):
+        for player in self.players:
+            if not player.folded:
+                print(f"{player}: {player.hand}")
+
+    def determine_winner(self):
+        best_hand = None
+        winner = None
+        for player in self.players:
+            if not player.folded:
+                full_hand = player.hand + self.community_cards
+                hand_value = HandEvaluator.evaluate_hand(full_hand)
+                print(f"{player.name}'s hand: {full_hand} ({hand_value})")
+                # Simplified winner determination based on hand type
+                if not best_hand or hand_value > best_hand:
+                    best_hand = hand_value
+                    winner = player
+        return winner
+
+    def play(self):
+        print("Starting Texas Hold'em Poker!")
+        self.deal_hole_cards()
+        self.betting_round()
+
+        print("\nFlop:")
+        self.deal_community_cards(3)
+        print(self.community_cards)
+        self.betting_round()
+
+        print("\nTurn:")
+        self.deal_community_cards(1)
+        print(self.community_cards)
+        self.betting_round()
+
+        print("\nRiver:")
+        self.deal_community_cards(1)
+        print(self.community_cards)
+        self.betting_round()
+
+        print("\nShowdown:")
+        self.show_hands()
+        winner = self.determine_winner()
+        if winner:
+            print(f"\nThe winner is {winner.name} with {winner.chips} chips!")
+        else:
+            print("\nIt's a tie!")
+
+# Example Game Setup
+players = [
+    AIPlayer("Jim"),
+    AIPlayer("Craig"),
+    AIPlayer("Bobby"),
+    AIPlayer("Janice"),
+    AIPlayer("Martin"),
+    AIPlayer("John")
+]
+game = TexasHoldem(players)
+game.play()
