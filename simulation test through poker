@@ -32,6 +32,10 @@ class Deck:
         self.cards = [Card(value, suit) for value in range(2, 15) for suit in ['Hearts', 'Diamonds', 'Clubs', 'Spades']]
         random.shuffle(self.cards)
 
+    def shuffle(self):
+        self.cards = [Card(value, suit) for value in range(2, 15) for suit in ['Hearts', 'Diamonds', 'Clubs', 'Spades']]
+        random.shuffle(self.cards)
+
     def draw(self, count):
         return [self.cards.pop() for _ in range(count)]
 
@@ -42,6 +46,7 @@ class Player:
         self.chips = chips
         self.hand = []
         self.folded = False
+        self.chips_in_pot = 0
 
     def __str__(self):
         return f"{self.name} ({self.chips} chips)"
@@ -133,15 +138,51 @@ class AIPlayer(Player):
         super().__init__(name, chips)
 
     def decide_action(self, current_bet, pot, community_cards):
-        # Basic AI logic based on the situation
-        if self.chips_in_pot == current_bet:
-            return "check"
-        elif current_bet - self.chips_in_pot <= self.chips * 0.1:
-            return "call"
-        elif random.random() < 0.2:  # 20% chance to raise
-            return "raise"
+        """
+        Advanced AI decision-making based on hand evaluation, pot odds, and strategy.
+        """
+        # Combine hole cards and community cards for evaluation
+        full_hand = self.hand + community_cards
+        hand_rank, _ = HandEvaluator.evaluate_hand(full_hand)
+
+        # Define thresholds for decision-making
+        strong_hand_threshold = HandEvaluator.HAND_RANKINGS["Flush"]
+        medium_hand_threshold = HandEvaluator.HAND_RANKINGS["One Pair"]
+
+        # Calculate the cost to call and pot odds
+        chips_to_call = current_bet - self.chips_in_pot
+        pot_odds = chips_to_call / (pot + chips_to_call) if chips_to_call > 0 else 0
+
+        # Decision-making logic
+        if hand_rank >= strong_hand_threshold:
+            # Strong hand: Bet or raise aggressively
+            if random.random() < 0.9:  # 90% chance to raise
+                return "raise"
+            elif chips_to_call == 0:
+                return "check"
+            else:
+                return "call"
+        elif medium_hand_threshold <= hand_rank < strong_hand_threshold:
+            # Medium hand: Call or raise cautiously
+            if random.random() < 0.50:
+                return "raise"
+            elif chips_to_call == 0:
+                return "check"  
+            elif pot_odds < 0.5:  # Only call if pot odds are favorable
+                return "call"
+            else:
+                return "fold"
         else:
-            return "fold"
+            # Weak hand: Bluff occasionally or fold
+            if random.random() < 0.25:  # 25% chance to bluff
+                return "raise"
+            elif chips_to_call == 0:
+                return "check"
+            else:
+                return "fold"
+
+    def __repr__(self):
+        return f"{self.name} (AI) - Chips: {self.chips}"
 
 class TexasHoldem:
     def __init__(self, players):
@@ -252,6 +293,9 @@ class TexasHoldem:
                     winner = player
         return winner
 
+    def shuffle_deck(self):
+        self.deck.shuffle()
+
     def play(self):
         print("Starting Texas Hold'em Poker!")
         self.deal_hole_cards()
@@ -280,14 +324,113 @@ class TexasHoldem:
         else:
             print("\nIt's a tie!")
 
+
+class TexasHoldemWithBlinds(TexasHoldem):
+    def __init__(self, players, small_blind=10, big_blind=20):
+        super().__init__(players)
+        self.small_blind = small_blind
+        self.big_blind = big_blind
+        self.dealer_position = 0  # Tracks the dealer button position
+
+    def post_blinds(self):
+        """Posts the small and big blinds."""
+        small_blind_player = self.players[(self.dealer_position + 1) % len(self.players)]
+        big_blind_player = self.players[(self.dealer_position + 2) % len(self.players)]
+
+        # Small Blind
+        small_blind_amount = min(self.small_blind, small_blind_player.chips)
+        small_blind_player.chips -= small_blind_amount
+        small_blind_player.chips_in_pot += small_blind_amount
+        self.pot += small_blind_amount
+        print(f"{small_blind_player.name} posts the small blind of {small_blind_amount}.")
+
+        # Big Blind
+        big_blind_amount = min(self.big_blind, big_blind_player.chips)
+        big_blind_player.chips -= big_blind_amount
+        big_blind_player.chips_in_pot += big_blind_amount
+        self.pot += big_blind_amount
+        self.current_bet = big_blind_amount
+        print(f"{big_blind_player.name} posts the big blind of {big_blind_amount}.")
+
+    def advance_dealer(self):
+        """Moves the dealer button to the next player."""
+        self.dealer_position = (self.dealer_position + 1) % len(self.players)
+
+    def betting_round(self):
+        """Modified betting round to handle blinds."""
+        self.reset_betting_round()
+        active_players = [player for player in self.players if not player.folded]
+
+        # Ensure blinds have acted first in the first betting round
+        starting_player_index = (self.dealer_position + 3) % len(self.players)
+        current_player_index = starting_player_index
+
+        while not all(player.has_acted or player.folded for player in active_players):
+            player = self.players[current_player_index]
+            if not player.folded and not player.has_acted:
+                if isinstance(player, AIPlayer):
+                    self.ai_action(player)
+                else:
+                    self.player_action(player)
+            current_player_index = (current_player_index + 1) % len(self.players)
+
+    def play_hand(self):
+        """Plays a single hand, including blinds and betting."""
+        print("\n--- New Hand ---")
+        self.post_blinds()
+        super().betting_round()  # Proceed with the first betting round
+
+    def play(self):
+        print("Starting Texas Hold'em Poker!")
+        while len([player for player in self.players if player.chips > 0]) > 1:
+            self.post_blinds()
+            
+            print("--- New Hand ---")
+            super().deal_hole_cards()
+            super().betting_round()
+
+            print("\nFlop:")
+            self.deal_community_cards(3)
+            print(self.community_cards)
+            super().betting_round()
+
+            print("\nTurn:")
+            self.deal_community_cards(1)
+            print(self.community_cards)
+            super().betting_round()
+
+            print("\nRiver:")
+            self.deal_community_cards(1)
+            print(self.community_cards)
+            super().betting_round()
+
+            print("\nShowdown:")
+            super().show_hands()
+            winner = super().determine_winner()
+            if winner:
+                print(f"\nThe winner is {winner.name} with {winner.chips} chips!")
+            else:
+                print("\nIt's a tie!")
+        
+            self.advance_dealer()
+            self.reset_for_new_hand()
+            self.shuffle_deck()
+
+    def reset_for_new_hand(self):
+        """Resets the game state for the next hand."""
+        self.community_cards = []
+        self.pot = 0
+        self.current_bet = 0
+        for player in self.players:
+            player.folded = False
+            player.chips_in_pot = 0
+
 # Example Game Setup
 players = [
     AIPlayer("Jim"),
     AIPlayer("Craig"),
     AIPlayer("Bobby"),
-    AIPlayer("Janice"),
-    AIPlayer("Martin"),
-    AIPlayer("John")
+    AIPlayer("Janice")
 ]
-game = TexasHoldem(players)
+game = TexasHoldemWithBlinds(players)
 game.play()
