@@ -1,0 +1,86 @@
+class PolyReg:
+  def __init__(self, degree):
+    self.degree=degree
+    self.coef=[]
+  def _transpose(self, M):
+    return [list(row) for row in zip(*M)]
+  def _matmul(self, A, B):
+    m, p = len(A), len(A[0])
+    p2, n = len(B), len(B[0])
+    assert p == p2, "Incompatible dimensions"
+    C = [[0]*n for _ in range(m)]
+    for i in range(m):
+      for j in range(n):
+        s = 0
+        for k in range(p):
+          s += A[i][k] * B[k][j]
+        C[i][j]=s
+    return C
+  def _gauss_jordan(self, A, b):
+    N=len(A)
+    M=[row[:] + [b_i] for row, b_i in zip(A, b)]
+    for col in range(N):
+      pivot = col
+      while pivot < N and abs(M[pivot][col]) < 1e-12:
+        pivot += 1
+      if pivot == N:
+        raise ValueError("Matrix is singular")
+      if pivot != col:
+        M[col], M[pivot] = M[pivot], M[col]
+      factor = M[col][col]
+      M[col] = [m_ij / factor for m_ij in M[col]]
+      for row in range(N):
+        if row != col:
+          factor = M[row][col]
+          M[row] = [
+            M[row][j] - factor * M[col][j]
+            for j in range(N + 1)
+          ]
+    return [M[i][-1] for i in range(N)]
+  def fit(self, x, y):
+    m = len(x)
+    if m != len(y):
+      raise ValueError("x and y gotta be the same length")
+    X=[
+      [x_i**p for p in range(self.degree + 1)]
+      for x_i in x
+    ]
+    XT = self._transpose(X)
+    XTX = self._matmul(XT, X)
+    XTy = [
+      sum(XT[row_i][k] * y[k] for k in range(m))
+      for row_i in range(self.degree+1)
+    ]
+    self.coef = self._gauss_jordan(XTX, XTy)
+  def predict(self, x_new):
+    if not self.coef:
+      raise ValueError("Model isnt fitted yet")
+    def _pred_val(xi):
+      return sum(self.coef[p] * (xi ** p) for p in range(len(self.coef)))
+    if isinstance(x_new, (list, tuple)):
+      return [_pred_val(xi) for xi in x_new]
+    else:
+      return _pred_val(x_new)
+def polymodtemp(degree):
+  if not isinstance(degree, int) or degree < 0:
+    raise ValueError("Degree must be positive")
+  def coef_name(p:int) -> str:
+    digits = "_".join(str(p))
+    return f"a_{digits}"
+  def exp_digits(p:int) -> str:
+    digits = "^".join(str(p))
+    return f"{digits}"
+  terms = []
+  for p in range(degree + 1):
+    c = coef_name(p)
+    e = exp_digits(p)
+    if p == 0:
+      terms.append(c)
+    else:
+      terms.append(f"{c} l_2^{e}")
+  return " + ".join(terms)
+
+if 1 == 1:
+  d = 4
+  model_eq = polymodtemp(11)
+  print(f"l_1 ~ {model_eq}")
