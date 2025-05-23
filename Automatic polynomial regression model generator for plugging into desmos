@@ -61,7 +61,7 @@ class PolyReg:
       return [_pred_val(xi) for xi in x_new]
     else:
       return _pred_val(x_new)
-def polymodtemp(degree):
+def polymodtemp(degree): #Just for degree
   if not isinstance(degree, int) or degree < 0:
     raise ValueError("Degree must be positive")
   def coef_name(p:int) -> str:
@@ -79,8 +79,6 @@ def polymodtemp(degree):
     else:
       terms.append(f"{c} l_2^{e}")
   return " + ".join(terms)
-
 if 1 == 1:
-  d = 4
-  model_eq = polymodtemp(11)
+  model_eq = polymodtemp(1) #Input degree of polynomial here
   print(f"l_1 ~ {model_eq}")
