@@ -1,0 +1,48 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.optimize import curve_fit as cf
+
+#Generation of synthetic data
+#Params
+A_true = 3.0  #amplitude
+mu_true = 0.5 #mean
+sigma_true = 0.8 #std
+
+#x values
+x_data = np.linspace(-2, 3, 100)
+
+#Gaussian model w/ noise
+def gaussian(x, A, mu, sigma):
+  return A * np.exp(-0.5 * ((x - mu) / sigma)**2)
+
+#Create noise
+noise = 0.2 * np.random.normal(size=x_data.size)
+y_data = gaussian(x_data, A_true, mu_true, sigma_true) + noise
+
+#Fitting model to the data
+#Initial guesses for A, mu, sigma
+initial_guess = [2.5, 0.0, 1.0]
+
+#cf returns optimal values and covariance matrix
+popt, pcov = cf(gaussian, x_data, y_data, p0=initial_guess)
+
+#Extraction of fitted parameters and uncertainties
+A_fit, mu_fit, sigma_fit = popt
+perr = np.sqrt(np.diag(pcov))
+A_err, mu_err, sigma_err = perr
+
+print(f"Fitted A = {A_fit:.3f} +- {A_err:.3f}")
+print(f"Fitted mu = {mu_fit:.3f} +- {mu_err:.3f}")
+print(f"Fitted sigma = {sigma_fit:.3f} +- {sigma_err:.3f}")
+
+#Plot and fit data
+plt.figure(figsize=(8,5))
+plt.scatter(x_data, y_data, label='Noisy data', s=20)
+x_fit = np.linspace(x_data.min(), x_data.max(), 500)
+y_fit = gaussian(x_fit, *popt)
+plt.plot(x_fit, y_fit, label='Best fit', linewidth=2)
+plt.title("Gaussian Fit")
+plt.xlabel("x")
+plt.ylabel("y")
+plt.legend()
+plt.show()
